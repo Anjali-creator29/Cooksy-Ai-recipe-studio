@@ -1,0 +1,20 @@
+{
+  "name": "cooksy-mern",
+  "version": "1.0.0",
+  "description": "AI-Powered Personalized Recipe Generator & Culinary Vault with JWT, Password Reset, and Bookmarks",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "server": "node server/server.js",
+    "client": "npm --prefix client run dev",
+    "build": "npm --prefix server install && npm --prefix client install && npm --prefix client run build",
+    "install-all": "npm install && npm --prefix server install && npm --prefix client install",
+    "dev": "concurrently \"npm run server\" \"npm run client\""
+  },
+  "keywords": ["recipe", "mern", "ai", "jwt", "password-reset", "render"],
+  "author": "Cooksy",
+  "license": "MIT",
+  "dependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
