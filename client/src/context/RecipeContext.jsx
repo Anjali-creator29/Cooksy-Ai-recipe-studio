@@ -12,22 +12,47 @@ export const RecipeProvider = ({ children }) => {
 
   const API_BASE = '/api';
 
+  // Safe JSON API fetcher that handles non-JSON / serverless error pages gracefully
+  const safeFetchJson = async (url, options = {}) => {
+    let response;
+    try {
+      response = await fetch(url, options);
+    } catch (networkErr) {
+      throw new Error(`Network error: ${networkErr.message}. Please check your internet connection.`);
+    }
+
+    const contentType = response.headers.get('content-type') || '';
+    let data = null;
+
+    if (contentType.includes('application/json')) {
+      try {
+        data = await response.json();
+      } catch {
+        throw new Error('Malformed response received from server.');
+      }
+    } else {
+      const text = await response.text();
+      const cleanText = text.replace(/<[^>]*>?/gm, '').trim();
+      throw new Error(cleanText || `Server error (${response.status})`);
+    }
+
+    if (!response.ok) {
+      throw new Error(data?.message || `Request failed with status ${response.status}`);
+    }
+
+    return data;
+  };
+
   // Generate Personalized Recipe
   const generateRecipe = async (params) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${API_BASE}/recipes/generate`, {
+      const data = await safeFetchJson(`${API_BASE}/recipes/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(params),
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to generate recipe');
-      }
 
       setGeneratedRecipe(data.recipe);
       return data.recipe;
@@ -50,15 +75,11 @@ export const RecipeProvider = ({ children }) => {
       if (filters.collectionName) queryParams.append('collectionName', filters.collectionName);
       if (filters.dietary) queryParams.append('dietary', filters.dietary);
 
-      const response = await fetch(`${API_BASE}/bookmarks?${queryParams.toString()}`, {
+      const data = await safeFetchJson(`${API_BASE}/bookmarks?${queryParams.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        setBookmarks(data.bookmarks || []);
-      }
+      setBookmarks(data.bookmarks || []);
     } catch (err) {
       console.error('[RecipeContext] Fetch bookmarks error:', err);
     } finally {
@@ -73,7 +94,7 @@ export const RecipeProvider = ({ children }) => {
     }
 
     try {
-      const response = await fetch(`${API_BASE}/bookmarks`, {
+      const data = await safeFetchJson(`${API_BASE}/bookmarks`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -81,12 +102,6 @@ export const RecipeProvider = ({ children }) => {
         },
         body: JSON.stringify(recipeData),
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to save bookmark');
-      }
 
       setBookmarks((prev) => [data.bookmark, ...prev]);
       return data.bookmark;
@@ -99,7 +114,7 @@ export const RecipeProvider = ({ children }) => {
   const updateBookmark = async (id, updatedFields) => {
     if (!token) return;
     try {
-      const response = await fetch(`${API_BASE}/bookmarks/${id}`, {
+      const data = await safeFetchJson(`${API_BASE}/bookmarks/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -107,12 +122,6 @@ export const RecipeProvider = ({ children }) => {
         },
         body: JSON.stringify(updatedFields),
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to update bookmark');
-      }
 
       setBookmarks((prev) =>
         prev.map((b) => (b._id === id ? data.bookmark : b))
@@ -127,16 +136,10 @@ export const RecipeProvider = ({ children }) => {
   const deleteBookmark = async (id) => {
     if (!token) return;
     try {
-      const response = await fetch(`${API_BASE}/bookmarks/${id}`, {
+      const data = await safeFetchJson(`${API_BASE}/bookmarks/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to delete bookmark');
-      }
 
       setBookmarks((prev) => prev.filter((b) => b._id !== id));
       return data;

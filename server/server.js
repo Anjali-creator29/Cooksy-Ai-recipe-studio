@@ -13,7 +13,9 @@ const { errorHandler } = require('./middleware/errorHandler');
 const app = express();
 
 // Connect to Database
-connectDB();
+connectDB().catch((err) => {
+  console.error('[Initial DB Connection Error]', err.message);
+});
 
 // Middleware
 app.use(cors());
@@ -24,6 +26,20 @@ app.use(express.urlencoded({ extended: true }));
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
   next();
+});
+
+// Database connection readiness middleware for API requests
+app.use('/api', async (req, res, next) => {
+  if (req.path === '/health') return next();
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    console.error('[DB Request Handler Error]', err.message);
+    return res.status(500).json({
+      message: err.message || 'Database connection error. Please verify MONGODB_URI in Vercel environment variables.'
+    });
+  }
 });
 
 // API Routes

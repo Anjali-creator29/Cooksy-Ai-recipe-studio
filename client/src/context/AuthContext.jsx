@@ -11,6 +11,38 @@ export const AuthProvider = ({ children }) => {
   // Configure global API base URL
   const API_BASE = '/api';
 
+  // Safe JSON API fetcher that handles non-JSON / serverless error pages gracefully
+  const safeFetchJson = async (url, options = {}) => {
+    let response;
+    try {
+      response = await fetch(url, options);
+    } catch (networkErr) {
+      throw new Error(`Network error: ${networkErr.message}. Please check your internet connection.`);
+    }
+
+    const contentType = response.headers.get('content-type') || '';
+    let data = null;
+
+    if (contentType.includes('application/json')) {
+      try {
+        data = await response.json();
+      } catch {
+        throw new Error('Malformed response received from server.');
+      }
+    } else {
+      const text = await response.text();
+      // Clean up HTML error tags if returned by hosting platform
+      const cleanText = text.replace(/<[^>]*>?/gm, '').trim();
+      throw new Error(cleanText || `Server error (${response.status})`);
+    }
+
+    if (!response.ok) {
+      throw new Error(data?.message || `Request failed with status ${response.status}`);
+    }
+
+    return data;
+  };
+
   // Fetch current user on mount if token exists
   useEffect(() => {
     const loadUser = async () => {
@@ -20,20 +52,12 @@ export const AuthProvider = ({ children }) => {
       }
 
       try {
-        const response = await fetch(`${API_BASE}/auth/me`, {
+        const data = await safeFetchJson(`${API_BASE}/auth/me`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
-
-        const data = await response.json();
-
-        if (response.ok) {
-          setUser(data.user);
-        } else {
-          // Token invalid or expired
-          logout();
-        }
+        setUser(data.user);
       } catch (err) {
         console.error('[Auth Context] Fetch user error:', err);
         logout();
@@ -49,17 +73,11 @@ export const AuthProvider = ({ children }) => {
   const register = async (name, email, password, dietaryPreferences = [], favoriteCuisines = []) => {
     setError(null);
     try {
-      const response = await fetch(`${API_BASE}/auth/register`, {
+      const data = await safeFetchJson(`${API_BASE}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, password, dietaryPreferences, favoriteCuisines }),
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Registration failed');
-      }
 
       localStorage.setItem('cooksy_token', data.token);
       setToken(data.token);
@@ -75,17 +93,11 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     setError(null);
     try {
-      const response = await fetch(`${API_BASE}/auth/login`, {
+      const data = await safeFetchJson(`${API_BASE}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Login failed');
-      }
 
       localStorage.setItem('cooksy_token', data.token);
       setToken(data.token);
@@ -108,7 +120,7 @@ export const AuthProvider = ({ children }) => {
   const updateProfile = async (profileData) => {
     setError(null);
     try {
-      const response = await fetch(`${API_BASE}/auth/profile`, {
+      const data = await safeFetchJson(`${API_BASE}/auth/profile`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -116,12 +128,6 @@ export const AuthProvider = ({ children }) => {
         },
         body: JSON.stringify(profileData),
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to update profile');
-      }
 
       setUser(data.user);
       return data;
@@ -135,19 +141,11 @@ export const AuthProvider = ({ children }) => {
   const requestPasswordReset = async (email) => {
     setError(null);
     try {
-      const response = await fetch(`${API_BASE}/auth/forgot-password`, {
+      return await safeFetchJson(`${API_BASE}/auth/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Password reset request failed');
-      }
-
-      return data;
     } catch (err) {
       setError(err.message);
       throw err;
@@ -158,17 +156,11 @@ export const AuthProvider = ({ children }) => {
   const resetPassword = async (resetToken, password) => {
     setError(null);
     try {
-      const response = await fetch(`${API_BASE}/auth/reset-password/${resetToken}`, {
+      const data = await safeFetchJson(`${API_BASE}/auth/reset-password/${resetToken}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password }),
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to reset password');
-      }
 
       localStorage.setItem('cooksy_token', data.token);
       setToken(data.token);
