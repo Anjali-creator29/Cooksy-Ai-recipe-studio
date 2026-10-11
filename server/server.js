@@ -12,10 +12,6 @@ const { errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
 
-// Connect to Database
-connectDB().catch((err) => {
-  console.error('[Initial DB Connection Error]', err.message);
-});
 
 // Middleware
 app.use(cors());

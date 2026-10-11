@@ -1,14 +1,18 @@
 const mongoose = require('mongoose');
 
+// Disable buffering so queries fail immediately with the exact DB error instead of timing out after 10s
+mongoose.set('bufferCommands', false);
+
 let connectionPromise = null;
 
 const connectDB = async () => {
-  if (mongoose.connection.readyState >= 1) {
-    return;
+  // Only state 1 is connected (0: disconnected, 1: connected, 2: connecting, 3: disconnecting)
+  if (mongoose.connection.readyState === 1) {
+    return mongoose.connection;
   }
 
   if (connectionPromise) {
-    return connectionPromise;
+    return await connectionPromise;
   }
 
   const connUri = process.env.MONGODB_URI;
@@ -26,10 +30,10 @@ const connectDB = async () => {
       connectionPromise = mongoose.connect('mongodb://127.0.0.1:27017/cooksy', {
         serverSelectionTimeoutMS: 3000,
       });
-      await connectionPromise;
+      const conn = await connectionPromise;
       connectionPromise = null;
       console.log('[Database] Local MongoDB connected successfully');
-      return;
+      return conn;
     } catch (err) {
       console.warn(`[Database] Local MongoDB failed (${err.message}). Trying MongoDB Memory Server fallback...`);
       connectionPromise = null;
@@ -40,10 +44,10 @@ const connectDB = async () => {
       const mongoServer = await MongoMemoryServer.create();
       const mongoUri = mongoServer.getUri();
       connectionPromise = mongoose.connect(mongoUri);
-      await connectionPromise;
+      const conn = await connectionPromise;
       connectionPromise = null;
       console.log('[Database] MongoDB Memory Server fallback connected');
-      return;
+      return conn;
     } catch (memErr) {
       connectionPromise = null;
       console.error('[Database Error]', memErr.message);
@@ -53,11 +57,12 @@ const connectDB = async () => {
 
   try {
     connectionPromise = mongoose.connect(connUri, {
-      serverSelectionTimeoutMS: 5000,
+      serverSelectionTimeoutMS: 8000,
     });
     const conn = await connectionPromise;
     connectionPromise = null;
     console.log(`[Database] MongoDB Connected: ${conn.connection.host}`);
+    return conn;
   } catch (error) {
     connectionPromise = null;
     console.error(`[Database Error] ${error.message}`);
