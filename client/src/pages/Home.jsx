@@ -9,6 +9,7 @@ const FEATURED_SAMPLES = [
   {
     _id: 'sample-1',
     title: 'Tuscan Garlic Lemon Herb Chicken',
+    imageUrl: 'https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?auto=format&fit=crop&w=800&q=80',
     description: 'Tender pan-seared chicken breasts smothered in a velvety Mediterranean garlic lemon butter sauce with fresh spinach.',
     prepTime: '15 mins',
     cookTime: '20 mins',
@@ -33,6 +34,7 @@ const FEATURED_SAMPLES = [
   {
     _id: 'sample-2',
     title: 'Avocado Sesame Tofu Power Bowl',
+    imageUrl: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80',
     description: 'Crispy pan-fried tofu cubes paired with creamy avocado, edamame, and warm quinoa in a sweet ginger sesame glaze.',
     prepTime: '12 mins',
     cookTime: '15 mins',

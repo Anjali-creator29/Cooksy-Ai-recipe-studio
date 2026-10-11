@@ -119,6 +119,12 @@ function generateSmartFallbackRecipe({
   const estimatedPrep = Math.max(10, Math.min(25, parseInt(maxTime) / 2 || 15));
   const estimatedCook = Math.max(12, Math.min(35, parseInt(maxTime) - estimatedPrep || 20));
 
+  const resolvedImage = resolveRecipeImage({
+    title: randomTitle,
+    cuisine: cuisineCap,
+    ingredients: ingList,
+  });
+
   return {
     title: randomTitle,
     description: `A delicious, chef-curated ${cuisineCap} ${mealCap.toLowerCase()} tailored specifically for your available ingredients (${ingList.join(', ')}) and dietary preference (${dietaryStr}).`,
@@ -129,6 +135,7 @@ function generateSmartFallbackRecipe({
     difficulty: 'Medium',
     cuisine: cuisineCap,
     dietaryTags: dietary.length > 0 ? dietary : ['Personalized'],
+    imageUrl: resolvedImage,
     ingredients: finalIngredients,
     instructions: instructions,
     nutrition: {
@@ -140,8 +147,41 @@ function generateSmartFallbackRecipe({
   };
 }
 
+// Food photo catalog for server-side generation
+const SERVER_FOOD_PHOTOS = {
+  italian: 'https://images.unsplash.com/photo-1551183053-bf91a1d81141?auto=format&fit=crop&w=800&q=80',
+  indian: 'https://images.unsplash.com/photo-1585937421612-70a008356fbe?auto=format&fit=crop&w=800&q=80',
+  mexican: 'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?auto=format&fit=crop&w=800&q=80',
+  asian: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=800&q=80',
+  mediterranean: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=800&q=80',
+  japanese: 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?auto=format&fit=crop&w=800&q=80',
+  french: 'https://images.unsplash.com/photo-1600891964599-f61ba0e24092?auto=format&fit=crop&w=800&q=80',
+  american: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=800&q=80',
+  chicken: 'https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?auto=format&fit=crop&w=800&q=80',
+  pasta: 'https://images.unsplash.com/photo-1621996346565-e3d5d6281781?auto=format&fit=crop&w=800&q=80',
+  pizza: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=800&q=80',
+  salmon: 'https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?auto=format&fit=crop&w=800&q=80',
+  salad: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=800&q=80',
+  soup: 'https://images.unsplash.com/photo-1547592166-23ac45744acd?auto=format&fit=crop&w=800&q=80',
+  default: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=80',
+};
+
+function resolveRecipeImage({ title = '', cuisine = '', ingredients = [] }) {
+  const combined = `${title} ${cuisine} ${Array.isArray(ingredients) ? ingredients.join(' ') : ingredients}`.toLowerCase();
+  if (combined.includes('pizza')) return SERVER_FOOD_PHOTOS.pizza;
+  if (combined.includes('pasta') || combined.includes('spaghetti')) return SERVER_FOOD_PHOTOS.pasta;
+  if (combined.includes('chicken')) return SERVER_FOOD_PHOTOS.chicken;
+  if (combined.includes('salmon') || combined.includes('fish')) return SERVER_FOOD_PHOTOS.salmon;
+  if (combined.includes('salad') || combined.includes('bowl')) return SERVER_FOOD_PHOTOS.salad;
+  if (combined.includes('soup') || combined.includes('broth')) return SERVER_FOOD_PHOTOS.soup;
+  
+  const c = cuisine.toLowerCase();
+  if (SERVER_FOOD_PHOTOS[c]) return SERVER_FOOD_PHOTOS[c];
+  return SERVER_FOOD_PHOTOS.default;
+}
+
 /**
- * Generate Recipe using Gemini AI or Fallback Engine
+ * Generate Recipe using Gemini AI or Fallback Engine with 7-second auto-timeout
  */
 async function generateRecipe(params) {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -186,7 +226,16 @@ Return ONLY strict valid JSON matching this schema (no markdown block wrapper):
 }
       `;
 
-      const result = await model.generateContent(prompt);
+      // 7-second timeout race to prevent serverless function hangs
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('AI generation timed out after 7s')), 7000)
+      );
+
+      const result = await Promise.race([
+        model.generateContent(prompt),
+        timeoutPromise,
+      ]);
+
       const responseText = result.response.text();
       
       // Clean JSON formatting if wrapped in codeblocks
@@ -196,9 +245,19 @@ Return ONLY strict valid JSON matching this schema (no markdown block wrapper):
         .trim();
 
       const recipeData = JSON.parse(cleanedJson);
+      
+      // Attach high quality food photo
+      if (!recipeData.imageUrl) {
+        recipeData.imageUrl = resolveRecipeImage({
+          title: recipeData.title,
+          cuisine: recipeData.cuisine || params.cuisine,
+          ingredients: recipeData.ingredients,
+        });
+      }
+
       return recipeData;
     } catch (err) {
-      console.warn('[Gemini AI Service] Error generating recipe via API, falling back to Smart Culinary Engine:', err.message);
+      console.warn('[Gemini AI Service] Timed out or failed, instantly falling back to Smart Culinary Engine:', err.message);
     }
   }
 

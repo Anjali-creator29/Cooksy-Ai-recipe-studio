@@ -67,6 +67,7 @@ router.post('/', async (req, res) => {
       nutrition,
       collectionName,
       notes,
+      imageUrl,
       isCustom,
     } = req.body;
 
@@ -90,6 +91,7 @@ router.post('/', async (req, res) => {
       nutrition: nutrition || {},
       collectionName: collectionName || 'Favorites',
       notes: notes || '',
+      imageUrl: imageUrl || '',
       isCustom: Boolean(isCustom),
     });
 
@@ -134,6 +136,7 @@ router.put('/:id', async (req, res) => {
       'nutrition',
       'collectionName',
       'notes',
+      'imageUrl',
     ];
 
     fieldsToUpdate.forEach((field) => {

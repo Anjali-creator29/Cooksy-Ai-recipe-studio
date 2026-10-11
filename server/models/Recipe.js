@@ -66,6 +66,10 @@ const recipeSchema = new mongoose.Schema(
       fat: { type: String, default: '12g' },
       fiber: { type: String, default: '5g' },
     },
+    imageUrl: {
+      type: String,
+      default: '',
+    },
     collectionName: {
       type: String,
       default: 'Favorites',
@@ -83,5 +87,10 @@ const recipeSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+// High performance indexes to eliminate slow table scans
+recipeSchema.index({ user: 1, createdAt: -1 });
+recipeSchema.index({ user: 1, collectionName: 1 });
+recipeSchema.index({ user: 1, cuisine: 1 });
 
 module.exports = mongoose.model('Recipe', recipeSchema);

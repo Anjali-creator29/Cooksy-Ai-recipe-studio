@@ -17,13 +17,23 @@ export default function BookmarksPage() {
   const [selectedRecipe, setSelectedRecipe] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  // Debounce search input by 300ms to keep network calls smooth and lag-free
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   useEffect(() => {
     fetchBookmarks({
-      search,
+      search: debouncedSearch,
       cuisine: selectedCuisine,
       collectionName: selectedCollection,
     });
-  }, [fetchBookmarks, search, selectedCuisine, selectedCollection]);
+  }, [fetchBookmarks, debouncedSearch, selectedCuisine, selectedCollection]);
 
   const handleOpenDetail = (recipe) => {
     setSelectedRecipe(recipe);

@@ -17,6 +17,8 @@ import {
   Square,
 } from 'lucide-react';
 import BookmarkModal from './BookmarkModal';
+import RecipeImage from './RecipeImage';
+import { getRecipeImageUrl } from '../utils/recipeImage';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
@@ -135,6 +137,16 @@ export default function RecipeDetailModal({ recipe, isOpen, onClose, isBookmarke
                 <X className="w-5 h-5" />
               </button>
             </div>
+          </div>
+
+          {/* Hero Recipe Photo */}
+          <div className="mb-6 rounded-2xl overflow-hidden border border-white/10 shadow-lg print:hidden">
+            <RecipeImage
+              src={getRecipeImageUrl(recipe)}
+              alt={recipe.title}
+              containerClassName="w-full h-52 sm:h-64 relative overflow-hidden"
+              className="w-full h-full object-cover"
+            />
           </div>
 
           {/* Recipe Header */}
